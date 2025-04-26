@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản trị - Đếm Ngày Yêu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Lexend', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-lg w-full">
+        <h2 class="text-2xl font-semibold text-pink-600 mb-4 text-center">Đăng nhập Quản trị</h2>
+        <div id="loginForm" class="space-y-4">
+            <div>
+                <label class="block text-gray-700">Tên đăng nhập</label>
+                <input id="username" type="text" class="w-full border rounded px-2 py-1" value="admin">
+            </div>
+            <div>
+                <label class="block text-gray-700">Mật khẩu</label>
+                <input id="password" type="password" class="w-full border rounded px-2 py-1" value="password">
+            </div>
+            <button id="loginBtn" class="bg-pink-500 text-white px-4 py-2 rounded w-full hover:bg-pink-600">Đăng nhập</button>
+        </div>
+        <div id="adminForm" class="space-y-4 hidden">
+            <h2 class="text-2xl font-semibold text-pink-600 mb-4">Quản trị Nội dung</h2>
+            <div>
+                <label class="block text-gray-700">Tên 1</label>
+                <input id="adminName1" type="text" class="w-full border rounded px-2 py-1">
+            </div>
+            <div>
+                <label class="block text-gray-700">Tên 2</label>
+                <input id="adminName2" type="text" class="w-full border rounded px-2 py-1">
+            </div>
+            <div>
+                <label class="block text-gray-700">Mô tả</label>
+                <textarea id="adminDescription" class="w-full border rounded px-2 py-1"></textarea>
+            </div>
+            <div>
+                <label class="block text-gray-700">Thời gian bắt đầu</label>
+                <input id="adminStartDate" type="datetime-local" class="w-full border rounded px-2 py-1">
+            </div>
+            <div>
+                <label class="block text-gray-700">Favicon</label>
+                <input id="adminFavicon" type="file" accept="image/*" class="w-full">
+            </div>
+            <div>
+                <label class="block text-gray-700">Ảnh đại diện</label>
+                <input id="adminAvatars" type="file" accept="image/*" multiple class="w-full">
+            </div>
+            <div>
+                <label class="block text-gray-700">Thêm mô tả cho ảnh album (chọn ảnh bằng index)</label>
+                <input id="adminAlbumIndex" type="number" class="w-full border rounded px-2 py-1" placeholder="Index ảnh">
+                <textarea id="adminAlbumDescription" class="w-full border rounded px-2 py-1 mt-2" placeholder="Mô tả ảnh"></textarea>
+                <button id="updateAlbumDescBtn" class="bg-blue-500 text-white px-4 py-2 rounded mt-2">Cập nhật mô tả</button>
+                <button id="deleteAlbumImageBtn" class="bg-red-500 text-white px-4 py-2 rounded mt-2">Xóa ảnh</button>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button id="saveAdminBtn" class="bg-green-500 text-white px-4 py-2 rounded">Lưu</button>
+                <button id="logoutBtn" class="bg-gray-500 text-white px-4 py-2 rounded">Đăng xuất</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let token = localStorage.getItem('token');
+        let contentData = {};
+
+        // Kiểm tra đăng nhập
+        async function checkLogin() {
+            if (token) {
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('adminForm').classList.remove('hidden');
+                await fetchContent();
+            }
+        }
+
+        // Lấy dữ liệu
+        async function fetchContent() {
+            const response = await fetch('/api/content', {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            contentData = await response.json();
+            document.getElementById('adminName1').value = contentData.names[0];
+            document.getElementById('adminName2').value = contentData.names[1];
+            document.getElementById('adminDescription').value = contentData.description;
+            document.getElementById('adminStartDate').value = new Date(contentData.startDate).toISOString().slice(0, 16);
+        }
+
+        // Đăng nhập
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+            const data = await response.json();
+            if (data.token) {
+                token = data.token;
+                localStorage.setItem('token', token);
+                checkLogin();
+            } else {
+                alert('Đăng nhập thất bại!');
+            }
+        });
+
+        // Đăng xuất
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('token');
+            token = null;
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('adminForm').classList.add('hidden');
+        });
+
+        // Lưu nội dung
+        document.getElementById('saveAdminBtn').addEventListener('click', async () => {
+            const names = [
+                document.getElementById('adminName1').value,
+                document.getElementById('adminName2').value,
+            ];
+            const description = document.getElementById('adminDescription').value;
+            const startDate = document.getElementById('adminStartDate').value;
+
+            await fetch('/api/content', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ names, description, startDate }),
+            });
+
+            const faviconFile = document.getElementById('adminFavicon').files[0];
+            if (faviconFile) {
+                const formData = new FormData();
+                formData.append('favicon', faviconFile);
+                await fetch('/api/favicon', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData,
+                });
+            }
+
+            const avatarFiles = document.getElementById('adminAvatars').files;
+            if (avatarFiles.length > 0) {
+                const formData = new FormData();
+                for (const file of avatarFiles) {
+                    formData.append('avatars', file);
+                }
+                await fetch('/api/avatars', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData,
+                });
+            }
+
+            await fetchContent();
+            alert('Cập nhật thành công!');
+        });
+
+        // Cập nhật mô tả ảnh
+        document.getElementById('updateAlbumDescBtn').addEventListener('click', async () => {
+            const index = document.getElementById('adminAlbumIndex').value;
+            const description = document.getElementById('adminAlbumDescription').value;
+            await fetch(`/api/album/${index}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ description }),
+            });
+            await fetchContent();
+        });
+
+        // Xóa ảnh
+        document.getElementById('deleteAlbumImageBtn').addEventListener('click', async () => {
+            const index = document.getElementById('adminAlbumIndex').value;
+            await fetch(`/api/album/${index}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            await fetchContent();
+        });
+
+        // Khởi động
+        checkLogin();
+    </script>
+</body>
+</html>
